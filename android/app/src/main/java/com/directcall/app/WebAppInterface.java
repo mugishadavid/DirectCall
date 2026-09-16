@@ -3,20 +3,15 @@ package com.directcall.app;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.net.wifi.p2p.WifiP2pConfig;
-import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pManager;
 import android.webkit.JavascriptInterface;
 import android.widget.Toast;
-
-import org.json.JSONArray;
-import org.json.JSONObject;
 
 public class WebAppInterface {
     Context mContext;
     WifiP2pManager mManager;
     WifiP2pManager.Channel mChannel;
 
-    /** Instantiate the interface and set the context */
     WebAppInterface(Context c, WifiP2pManager manager, WifiP2pManager.Channel channel) {
         mContext = c;
         mManager = manager;
@@ -28,22 +23,20 @@ public class WebAppInterface {
         Toast.makeText(mContext, toast, Toast.LENGTH_SHORT).show();
     }
 
+    @JavascriptInterface
+    public void registerOfflineId(String dcId, String name) {
+        // Tells Java to start broadcasting this user's ID
+        if (mContext instanceof MainActivity) {
+            ((MainActivity) mContext).startAdvertisingService(dcId, name);
+        }
+    }
+
     @SuppressLint("MissingPermission")
     @JavascriptInterface
     public void discoverPeers() {
-        if (mManager != null && mChannel != null) {
-            mManager.discoverPeers(mChannel, new WifiP2pManager.ActionListener() {
-                @Override
-                public void onSuccess() {
-                    // Discovery started successfully. 
-                    // BroadcastReceiver will listen for WIFI_P2P_PEERS_CHANGED_ACTION
-                }
-
-                @Override
-                public void onFailure(int reasonCode) {
-                    showToast("Failed to start discovery: " + reasonCode);
-                }
-            });
+        // Now triggers DNS-SD Service Discovery instead of regular peer discovery
+        if (mContext instanceof MainActivity) {
+            ((MainActivity) mContext).startServiceDiscovery();
         }
     }
 
@@ -56,12 +49,12 @@ public class WebAppInterface {
         mManager.connect(mChannel, config, new WifiP2pManager.ActionListener() {
             @Override
             public void onSuccess() {
-                showToast("Connecting to " + deviceAddress + "...");
+                showToast("Connecting...");
             }
 
             @Override
             public void onFailure(int reason) {
-                showToast("Connection failed. Retry.");
+                showToast("Connection failed.");
             }
         });
     }
@@ -70,14 +63,8 @@ public class WebAppInterface {
     public void disconnect() {
         if (mManager != null && mChannel != null) {
             mManager.removeGroup(mChannel, new WifiP2pManager.ActionListener() {
-                @Override
-                public void onSuccess() {
-                    showToast("Disconnected.");
-                }
-                @Override
-                public void onFailure(int reason) {
-                    showToast("Disconnect failed.");
-                }
+                @Override public void onSuccess() {}
+                @Override public void onFailure(int reason) {}
             });
         }
     }

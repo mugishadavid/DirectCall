@@ -124,6 +124,11 @@ document.addEventListener('DOMContentLoaded', () => {
         currentUser = user;
         document.getElementById('welcome-name').textContent = `Hello, ${user.name.split(' ')[0]} 👋`;
         document.getElementById('display-id').textContent = user.id;
+
+        // Tell Java to broadcast our ID to the room!
+        if (window.AndroidBridge && window.AndroidBridge.registerOfflineId) {
+            window.AndroidBridge.registerOfflineId(user.id, user.name);
+        }
     }
 
     // Check existing session on reload
@@ -146,17 +151,26 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
     document.getElementById('dial-call-btn').addEventListener('click', () => {
-        if(dialInput.value.length > 3) {
-            startCall('Unknown User', dialInput.value);
+        const targetId = dialInput.value.trim();
+        if(targetId.length > 3) {
+            // Check if we discovered this phone offline!
+            if (window.offlinePhonebook && window.offlinePhonebook[targetId]) {
+                startCall('DirectCall User', targetId);
+            } else {
+                alert(`Cannot reach ${targetId}. They are not nearby or not broadcasting.`);
+            }
         }
     });
 
 
     // --- NATIVE ANDROID BRIDGE ---
+    window.offlinePhonebook = {};
+
     window.onPeersDiscovered = function(jsonPeersString) {
         const peers = JSON.parse(jsonPeersString);
         const listContainer = document.getElementById('nearby-list');
         listContainer.innerHTML = ''; 
+        window.offlinePhonebook = {};
         
         if(peers.length === 0) {
             listContainer.innerHTML = '<p style="text-align:center; color:#666; margin-top:20px;">No nearby devices found.</p>';
@@ -164,15 +178,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         peers.forEach(peer => {
+            window.offlinePhonebook[peer.id] = peer.address; // Map DC-ID to MAC
+
             const item = document.createElement('div');
             item.className = 'user-item';
-            // Use deviceName and deviceAddress returned by Android
             item.innerHTML = `
                 <div class="user-info">
                     <div class="avatar-small">👤</div>
-                    <div><div class="item-name">${peer.name}</div><div class="item-id"><span class="status-dot"></span> ${peer.address}</div></div>
+                    <div><div class="item-name">${peer.name}</div><div class="item-id"><span class="status-dot"></span> ${peer.id}</div></div>
                 </div>
-                <button class="btn-call-small" onclick="startCall('${peer.name}', '${peer.address}')">📞 Connect</button>
+                <button class="btn-call-small" onclick="startCall('${peer.name}', '${peer.id}')">📞 Connect</button>
             `;
             listContainer.appendChild(item);
         });
@@ -223,7 +238,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- CALLING LOGIC ---
     window.startCall = function(name, id) {
         document.getElementById('caller-name').textContent = name;
-        document.getElementById('caller-id').textContent = id; // This is now the MAC address
+        document.getElementById('caller-id').textContent = id; 
         document.getElementById('call-status').textContent = 'Negotiating Wi-Fi Direct connection...';
         
         const timerEl = document.getElementById('call-timer');
@@ -234,8 +249,12 @@ document.addEventListener('DOMContentLoaded', () => {
         showScreen(screens.call);
 
         if (window.AndroidBridge) {
-            // Trigger the native Android connection request
-            window.AndroidBridge.connectToPeer(id);
+            const macAddress = window.offlinePhonebook[id];
+            if (macAddress) {
+                window.AndroidBridge.connectToPeer(macAddress);
+            } else {
+                document.getElementById('call-status').textContent = 'Failed: Offline routing MAC not found.';
+            }
         }
     };
 
