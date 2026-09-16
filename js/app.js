@@ -152,34 +152,79 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
 
-    // --- NEARBY USERS MOCK ---
-    function populateNearbyUsers() {
+    // --- NATIVE ANDROID BRIDGE ---
+    window.onPeersDiscovered = function(jsonPeersString) {
+        const peers = JSON.parse(jsonPeersString);
         const listContainer = document.getElementById('nearby-list');
         listContainer.innerHTML = ''; 
-        const mockPeers = [
-            { name: "John Doe", id: "DC-72931" },
-            { name: "Sarah Smith", id: "DC-55192" }
-        ];
+        
+        if(peers.length === 0) {
+            listContainer.innerHTML = '<p style="text-align:center; color:#666; margin-top:20px;">No nearby devices found.</p>';
+            return;
+        }
 
-        mockPeers.forEach(peer => {
+        peers.forEach(peer => {
             const item = document.createElement('div');
             item.className = 'user-item';
+            // Use deviceName and deviceAddress returned by Android
             item.innerHTML = `
                 <div class="user-info">
                     <div class="avatar-small">👤</div>
-                    <div><div class="item-name">${peer.name}</div><div class="item-id"><span class="status-dot"></span> ${peer.id}</div></div>
+                    <div><div class="item-name">${peer.name}</div><div class="item-id"><span class="status-dot"></span> ${peer.address}</div></div>
                 </div>
-                <button class="btn-call-small" onclick="startCall('${peer.name}', '${peer.id}')">📞 Call</button>
+                <button class="btn-call-small" onclick="startCall('${peer.name}', '${peer.address}')">📞 Connect</button>
             `;
             listContainer.appendChild(item);
         });
+    };
+
+    window.onConnectionChanged = function(isConnected) {
+        const statusEl = document.getElementById('call-status');
+        const dashWifiEl = document.querySelector('.status-item:nth-child(1) .status-value');
+        
+        if (isConnected) {
+            if(statusEl) statusEl.textContent = 'Connected - Secure P2P Socket';
+            if(dashWifiEl) {
+                dashWifiEl.textContent = 'CONNECTED';
+                dashWifiEl.style.color = '#4caf50';
+            }
+            
+            const timerEl = document.getElementById('call-timer');
+            if(timerEl && !timerEl.classList.contains('visible')) {
+                timerEl.classList.add('visible');
+                callTimerInterval = setInterval(() => {
+                    callSeconds++;
+                    const m = String(Math.floor(callSeconds / 60)).padStart(2, '0');
+                    const s = String(callSeconds % 60).padStart(2, '0');
+                    timerEl.textContent = `${m}:${s}`;
+                }, 1000);
+            }
+        } else {
+            if(statusEl) statusEl.textContent = 'Disconnected';
+            if(dashWifiEl) {
+                dashWifiEl.textContent = 'NOT CONNECTED';
+                dashWifiEl.style.color = '#e74c3c';
+            }
+            clearInterval(callTimerInterval);
+        }
+    };
+
+    function populateNearbyUsers() {
+        const listContainer = document.getElementById('nearby-list');
+        listContainer.innerHTML = '<p style="text-align:center; color:#666; margin-top:20px;">Scanning for Wi-Fi Direct devices...</p>';
+        
+        if (window.AndroidBridge) {
+            window.AndroidBridge.discoverPeers();
+        } else {
+            listContainer.innerHTML = '<p style="text-align:center; color:red; margin-top:20px;">Error: Not running inside the Native Android App.</p>';
+        }
     }
 
     // --- CALLING LOGIC ---
     window.startCall = function(name, id) {
         document.getElementById('caller-name').textContent = name;
-        document.getElementById('caller-id').textContent = id;
-        document.getElementById('call-status').textContent = 'Connecting via Wi-Fi Direct...';
+        document.getElementById('caller-id').textContent = id; // This is now the MAC address
+        document.getElementById('call-status').textContent = 'Negotiating Wi-Fi Direct connection...';
         
         const timerEl = document.getElementById('call-timer');
         timerEl.classList.remove('visible');
@@ -188,21 +233,18 @@ document.addEventListener('DOMContentLoaded', () => {
         
         showScreen(screens.call);
 
-        setTimeout(() => {
-            document.getElementById('call-status').textContent = 'Connected - Local Socket';
-            timerEl.classList.add('visible');
-            callTimerInterval = setInterval(() => {
-                callSeconds++;
-                const m = String(Math.floor(callSeconds / 60)).padStart(2, '0');
-                const s = String(callSeconds % 60).padStart(2, '0');
-                timerEl.textContent = `${m}:${s}`;
-            }, 1000);
-        }, 3000);
+        if (window.AndroidBridge) {
+            // Trigger the native Android connection request
+            window.AndroidBridge.connectToPeer(id);
+        }
     };
 
     document.getElementById('btn-end-call').addEventListener('click', () => {
         clearInterval(callTimerInterval);
-        document.getElementById('call-status').textContent = 'Call Ended';
+        document.getElementById('call-status').textContent = 'Ending Call...';
+        if (window.AndroidBridge) {
+            window.AndroidBridge.disconnect();
+        }
         setTimeout(() => showScreen(screens.home), 1500);
     });
 
