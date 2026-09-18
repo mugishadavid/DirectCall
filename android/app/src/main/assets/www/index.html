@@ -5,256 +5,53 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>DirectCall</title>
     <link rel="stylesheet" href="css/style.css">
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#4361ee">
 </head>
 <body>
-    <div id="app-container">
-        <!-- LOGIN SCREEN -->
-        <div id="login-screen" class="screen active">
-            <div class="card">
-                <div id="install-banner" style="display:none; background:var(--primary); color:white; padding:12px; text-align:center; border-radius:12px; margin-bottom:16px; font-weight:bold; cursor:pointer; box-shadow:0 4px 10px rgba(67,97,238,0.3); transition:0.2s;">
-                    ⬇️ Install DirectCall to Phone
-                </div>
-                <div class="logo-container">
-                    <div class="logo-icon">📞</div>
-                    <h1>DirectCall</h1>
-                    <p class="subtitle">Offline P2P Voice Calling</p>
-                </div>
-                
-                <form id="login-form">
-                    <div class="input-group">
-                        <label for="login-identifier">Username or Phone</label>
-                        <input type="text" id="login-identifier" required placeholder="Enter username or phone">
-                    </div>
-                    <div class="input-group">
-                        <label for="login-password">Password</label>
-                        <input type="password" id="login-password" required placeholder="Enter password">
-                    </div>
-                    
-                    <div class="options-row">
-                        <label class="checkbox-container">
-                            <input type="checkbox" id="remember-me"> Remember Me
-                        </label>
-                        <a href="#" class="forgot-link">Forgot Password?</a>
-                    </div>
+    <div id="auth-screen" class="screen active">
+        <div class="glass-card">
+            <h1 class="app-title">DirectCall</h1>
+            <p class="subtitle">Offline P2P Calling</p>
+            <form id="auth-form">
+                <input type="text" id="auth-username" placeholder="Username" required>
+                <input type="password" id="auth-password" placeholder="Password" required>
+                <label class="remember-me">
+                    <input type="checkbox" id="auth-remember"> Remember username and password
+                </label>
+                <button type="submit" id="auth-btn">Login</button>
+            </form>
+        </div>
+    </div>
 
-                    <button type="submit" class="btn btn-primary btn-large">Login</button>
-                </form>
-                
-                <p class="switch-screen">
-                    Don't have an account? <a href="#" id="go-to-register">Create Account</a>
-                </p>
+    <div id="main-screen" class="screen">
+        <div class="header">
+            <div class="user-badge">
+                <span class="dot online"></span>
+                <span id="my-username">User</span>
             </div>
+            <button id="btn-logout" class="icon-btn">Logout</button>
         </div>
 
-        <!-- REGISTRATION SCREEN -->
-        <div id="register-screen" class="screen">
-            <div class="card">
-                <div class="logo-container small">
-                    <div class="logo-icon">📞</div>
-                    <h2>Create Account</h2>
-                </div>
-                
-                <form id="register-form">
-                    <div class="input-group">
-                        <label for="reg-name">Full Name</label>
-                        <input type="text" id="reg-name" required placeholder="e.g. David Mugisha">
-                    </div>
-                    <div class="input-group">
-                        <label for="reg-username">Username</label>
-                        <input type="text" id="reg-username" required placeholder="e.g. david">
-                    </div>
-                    <div class="input-group">
-                        <label for="reg-password">Password</label>
-                        <input type="password" id="reg-password" required placeholder="Create password">
-                    </div>
-                    <div class="input-group">
-                        <label for="reg-confirm">Confirm Password</label>
-                        <input type="password" id="reg-confirm" required placeholder="Confirm password">
-                    </div>
-                    <button type="submit" class="btn btn-primary btn-large">Create Account</button>
-                </form>
-                <p class="switch-screen">Already have an account? <a href="#" id="go-to-login">Login here</a></p>
-            </div>
+        <div class="dial-container">
+            <input type="text" id="target-input" placeholder="Enter ID Number..." autocomplete="off">
+            <button id="btn-call-main" class="call-btn-massive">CALL</button>
         </div>
 
-        <!-- DASHBOARD (HOME) SCREEN -->
-        <div id="home-screen" class="screen">
-            <div class="header">
-                <div>
-                    <h2 id="welcome-name">Hello, User 👋</h2>
-                    <p class="user-id">My ID: <span id="display-id">DC-00000</span></p>
-                </div>
-            </div>
-            
-            <div class="status-banner">
-                <div class="status-item">
-                    <span class="icon">📡</span>
-                    <div>
-                        <strong>Wi-Fi Direct</strong>
-                        <span id="wifi-status" class="status-text not-connected">NOT CONNECTED</span>
-                    </div>
-                </div>
-                <div class="status-item">
-                    <span class="icon">🌐</span>
-                    <div>
-                        <strong>Internet</strong>
-                        <span class="status-text neutral">NOT REQUIRED</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="action-grid">
-                <button class="grid-btn" id="btn-call">
-                    <span class="icon">📞</span><span>Dialpad</span>
-                </button>
-                <button class="grid-btn" id="btn-contacts">
-                    <span class="icon">👥</span><span>Contacts</span>
-                </button>
-                <button class="grid-btn" id="btn-nearby">
-                    <span class="icon">📡</span><span>Nearby Users</span>
-                </button>
-                <button class="grid-btn" id="btn-history">
-                    <span class="icon">🕘</span><span>Call History</span>
-                </button>
-                <button class="grid-btn" id="btn-settings" style="grid-column: span 2;">
-                    <span class="icon">⚙️</span><span>Settings</span>
-                </button>
+        <div class="nearby-container">
+            <h3>Nearby ID Numbers</h3>
+            <div id="nearby-list">
+                <p class="empty-state">Scanning...</p>
             </div>
         </div>
+    </div>
 
-        <!-- DIALPAD SCREEN -->
-        <div id="dialpad-screen" class="screen">
-            <div class="header">
-                <h2>Dialpad</h2>
-                <button class="btn-back back-to-home">← Back</button>
-            </div>
-            <div class="dialpad-container">
-                <input type="text" id="dial-input" placeholder="Enter ID (e.g. 12345)" readonly>
-                <div class="dial-grid">
-                    <button class="dial-btn">1</button><button class="dial-btn">2</button><button class="dial-btn">3</button>
-                    <button class="dial-btn">4</button><button class="dial-btn">5</button><button class="dial-btn">6</button>
-                    <button class="dial-btn">7</button><button class="dial-btn">8</button><button class="dial-btn">9</button>
-                    <button class="dial-btn">X</button><button class="dial-btn">0</button><button class="dial-btn">#</button>
-                </div>
-                <button class="btn-call-large" id="dial-call-btn">📞</button>
-            </div>
+    <div id="call-screen" class="screen">
+        <div class="call-ui">
+            <div class="avatar-large">??</div>
+            <h2 id="call-target-name">Unknown</h2>
+            <p id="call-status">Negotiating connection...</p>
+            <h1 id="call-timer">00:00</h1>
+            <button id="btn-end-call" class="end-call-btn">END CALL</button>
         </div>
-
-        <!-- CONTACTS SCREEN -->
-        <div id="contacts-screen" class="screen">
-            <div class="header">
-                <h2>Saved Contacts</h2>
-                <button class="btn-back back-to-home">← Back</button>
-            </div>
-            <div class="user-list">
-                <div class="user-item">
-                    <div class="user-info">
-                        <div class="avatar-small" style="background:#ffd54f">E</div>
-                        <div><div class="item-name">Eric Ndikumana</div><div class="item-id">DC-18291</div></div>
-                    </div>
-                    <button class="btn-call-small" onclick="startCall('Eric Ndikumana', 'DC-18291')">📞</button>
-                </div>
-                <div class="user-item">
-                    <div class="user-info">
-                        <div class="avatar-small" style="background:#64b5f6">A</div>
-                        <div><div class="item-name">Alice</div><div class="item-id">DC-99212</div></div>
-                    </div>
-                    <button class="btn-call-small" onclick="startCall('Alice', 'DC-99212')">📞</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- CALL HISTORY SCREEN -->
-        <div id="history-screen" class="screen">
-            <div class="header">
-                <h2>Call History</h2>
-                <button class="btn-back back-to-home">← Back</button>
-            </div>
-            <div class="user-list">
-                <div class="user-item">
-                    <div class="user-info">
-                        <div class="avatar-small">👤</div>
-                        <div><div class="item-name">John Doe</div><div class="item-id" style="color:var(--success)">↙ Incoming • Today, 10:30 AM</div></div>
-                    </div>
-                </div>
-                <div class="user-item">
-                    <div class="user-info">
-                        <div class="avatar-small" style="background:#ffd54f">E</div>
-                        <div><div class="item-name">Eric Ndikumana</div><div class="item-id">↗ Outgoing • Yesterday</div></div>
-                    </div>
-                </div>
-                <div class="user-item">
-                    <div class="user-info">
-                        <div class="avatar-small" style="background:#ef5350; color:white">S</div>
-                        <div><div class="item-name">Sarah Smith</div><div class="item-id" style="color:var(--danger)">! Missed • Yesterday</div></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- SETTINGS SCREEN -->
-        <div id="settings-screen" class="screen">
-            <div class="header">
-                <h2>Settings</h2>
-                <button class="btn-back back-to-home">← Back</button>
-            </div>
-            <div class="card" style="margin: 0 0 16px 0;">
-                <div style="display:flex; align-items:center; gap:16px;">
-                    <div class="avatar-small" style="width:60px; height:60px; font-size:30px;">👤</div>
-                    <div>
-                        <h3 id="settings-name">User</h3>
-                        <p style="color:var(--text-muted); font-family:monospace;" id="settings-id">DC-00000</p>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="user-list">
-                <div class="user-item"><strong>Wi-Fi Direct Status</strong> <span style="color:var(--text-muted)">Enabled</span></div>
-                <div class="user-item"><strong>Audio Quality</strong> <span style="color:var(--text-muted)">High</span></div>
-                <div class="user-item"><strong>App Version</strong> <span style="color:var(--text-muted)">1.0.0 (Offline)</span></div>
-            </div>
-
-            <button id="btn-logout" class="btn btn-secondary" style="margin-top: 24px; color: var(--danger);">Log Out</button>
-        </div>
-
-        <!-- NEARBY USERS SCREEN -->
-        <div id="nearby-screen" class="screen">
-            <div class="header">
-                <h2>Nearby Users</h2>
-                <button class="btn-back back-to-home">← Back</button>
-            </div>
-            <div class="status-banner" style="background-color: #e0f2f1; border-left: 4px solid #26a69a;">
-                <div class="status-item">
-                    <span class="icon" style="animation: pulse 1.5s infinite;">📡</span>
-                    <div>
-                        <strong>Scanning...</strong>
-                        <span class="status-text">Looking for Wi-Fi Direct devices</span>
-                    </div>
-                </div>
-            </div>
-            <div class="user-list" id="nearby-list">
-                <!-- Mock items injected by JS -->
-            </div>
-        </div>
-
-        <!-- CALL SCREEN -->
-        <div id="call-screen" class="screen call-active-bg">
-            <div class="call-header"><p id="call-status">Connecting...</p></div>
-            <div class="caller-profile">
-                <div class="caller-avatar" id="caller-avatar-icon">👤</div>
-                <h2 id="caller-name">Name</h2>
-                <p id="caller-id" class="user-id">DC-00000</p>
-                <div id="call-timer" class="timer">00:00</div>
-            </div>
-            <div class="call-controls">
-                <button class="control-btn" id="btn-mute">🔇</button>
-                <button class="control-btn end-call-btn" id="btn-end-call">❌</button>
-                <button class="control-btn" id="btn-speaker">🔊</button>
-            </div>
-        </div>
-
     </div>
     <script src="js/app.js"></script>
 </body>

@@ -23,20 +23,15 @@ public class WebAppInterface {
         Toast.makeText(mContext, toast, Toast.LENGTH_SHORT).show();
     }
 
-    @JavascriptInterface
-    public void registerOfflineId(String dcId, String name) {
-        // Tells Java to start broadcasting this user's ID
-        if (mContext instanceof MainActivity) {
-            ((MainActivity) mContext).startAdvertisingService(dcId, name);
-        }
-    }
-
     @SuppressLint("MissingPermission")
     @JavascriptInterface
     public void discoverPeers() {
-        // Now triggers DNS-SD Service Discovery instead of regular peer discovery
-        if (mContext instanceof MainActivity) {
-            ((MainActivity) mContext).startServiceDiscovery();
+        // Standard Android WifiP2pManager Peer Discovery
+        if (mManager != null && mChannel != null) {
+            mManager.discoverPeers(mChannel, new WifiP2pManager.ActionListener() {
+                @Override public void onSuccess() {}
+                @Override public void onFailure(int reason) {}
+            });
         }
     }
 
@@ -47,15 +42,8 @@ public class WebAppInterface {
         config.deviceAddress = deviceAddress;
         
         mManager.connect(mChannel, config, new WifiP2pManager.ActionListener() {
-            @Override
-            public void onSuccess() {
-                showToast("Connecting...");
-            }
-
-            @Override
-            public void onFailure(int reason) {
-                showToast("Connection failed.");
-            }
+            @Override public void onSuccess() { showToast("Connecting..."); }
+            @Override public void onFailure(int reason) { showToast("Connection failed."); }
         });
     }
 

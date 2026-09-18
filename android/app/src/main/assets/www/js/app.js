@@ -1,321 +1,173 @@
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./service-worker.js');
-    });
-}
-
-let deferredPrompt;
-window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-    
-    // Check every 500ms until the DOM is loaded and the element exists
-    const checkBanner = setInterval(() => {
-        const installBanner = document.getElementById('install-banner');
-        if (installBanner) {
-            clearInterval(checkBanner);
-            installBanner.style.display = 'block';
-            installBanner.addEventListener('click', () => {
-                installBanner.style.display = 'none';
-                deferredPrompt.prompt();
-                deferredPrompt.userChoice.then(() => { deferredPrompt = null; });
-            });
-        }
-    }, 500);
-});
-
 document.addEventListener('DOMContentLoaded', () => {
 
-    // --- PC SIMULATOR MODE ---
-    // If opened on a Windows computer browser, simulate the Android hardware
-    if (typeof window.AndroidBridge === 'undefined') {
-        console.warn("Running on PC: Activating Android Wi-Fi Direct Simulator");
-        window.AndroidBridge = {
-            registerOfflineId: function(id, name) {
-                console.log(`[SIMULATOR] Radio broadcasting ID: ${id}`);
-            },
-            discoverPeers: function() {
-                console.log("[SIMULATOR] Scanning room for radio waves...");
-                // Pretend we found a phone after 1.5 seconds
-                setTimeout(() => {
-                    const fakePeers = [
-                        { name: "Test Phone B", id: "DC-99999", address: "AA:BB:CC:DD:EE:FF" }
-                    ];
-                    if (window.onPeersDiscovered) {
-                        window.onPeersDiscovered(JSON.stringify(fakePeers));
-                    }
-                }, 1500);
-            },
-            connectToPeer: function(mac) {
-                console.log(`[SIMULATOR] Negotiating connection with MAC: ${mac}`);
-                // Pretend connection succeeds after 2 seconds
-                setTimeout(() => {
-                    if (window.onConnectionChanged) window.onConnectionChanged(true);
-                }, 2000);
-            },
-            disconnect: function() {
-                console.log("[SIMULATOR] Disconnected.");
-                if (window.onConnectionChanged) window.onConnectionChanged(false);
-            }
-        };
+    const screens = {
+        auth: document.getElementById('auth-screen'),
+        main: document.getElementById('main-screen'),
+        call: document.getElementById('call-screen')
+    };
+
+    function showScreen(screen) {
+        Object.values(screens).forEach(s => s.classList.remove('active'));
+        screen.classList.add('active');
     }
 
-    // Application Screens
-    const screens = {
-        login: document.getElementById('login-screen'),
-        register: document.getElementById('register-screen'),
-        home: document.getElementById('home-screen'),
-        nearby: document.getElementById('nearby-screen'),
-        call: document.getElementById('call-screen'),
-        dialpad: document.getElementById('dialpad-screen'),
-        contacts: document.getElementById('contacts-screen'),
-        history: document.getElementById('history-screen'),
-        settings: document.getElementById('settings-screen')
-    };
+    // --- AUTHENTICATION ---
+    const authForm = document.getElementById('auth-form');
+    const rememberChk = document.getElementById('auth-remember');
     
-    // Auth Forms & Inputs
-    const loginForm = document.getElementById('login-form');
-    const registerForm = document.getElementById('register-form');
+    // Load saved auth
+    if (localStorage.getItem('savedUsername')) {
+        document.getElementById('auth-username').value = localStorage.getItem('savedUsername');
+        document.getElementById('auth-password').value = localStorage.getItem('savedPassword');
+        rememberChk.checked = true;
+    }
 
-    // Global State
-    let callTimerInterval = null;
-    let callSeconds = 0;
     let currentUser = null;
 
-    // --- NAVIGATION HELPERS ---
-    window.showScreen = function(screenElement) {
-        Object.values(screens).forEach(s => { if(s) s.classList.remove('active'); });
-        if(screenElement) screenElement.classList.add('active');
-    };
-
-    // Auth Navigation
-    document.getElementById('go-to-register').addEventListener('click', (e) => { e.preventDefault(); showScreen(screens.register); });
-    document.getElementById('go-to-login').addEventListener('click', (e) => { e.preventDefault(); showScreen(screens.login); });
-    document.getElementById('btn-logout').addEventListener('click', () => {
-        sessionStorage.removeItem('currentUser');
-        currentUser = null;
-        showScreen(screens.login);
-    });
-
-    // Dashboard Buttons
-    document.getElementById('btn-contacts').addEventListener('click', () => showScreen(screens.contacts));
-    document.getElementById('btn-nearby').addEventListener('click', () => { showScreen(screens.nearby); populateNearbyUsers(); });
-    document.getElementById('btn-history').addEventListener('click', () => showScreen(screens.history));
-    document.getElementById('btn-settings').addEventListener('click', () => {
-        document.getElementById('settings-name').textContent = currentUser ? currentUser.name : "User";
-        document.getElementById('settings-id').textContent = currentUser ? currentUser.id : "DC-00000";
-        showScreen(screens.settings);
-    });
-
-    // Universal Back Buttons (all buttons with class 'back-to-home')
-    document.querySelectorAll('.back-to-home').forEach(btn => {
-        btn.addEventListener('click', () => showScreen(screens.home));
-    });
-
-    // --- AUTHENTICATION LOGIC ---
-    function generateUserId() { return `DC-${Math.floor(10000 + Math.random() * 90000)}`; }
-
-    registerForm.addEventListener('submit', (e) => {
+    authForm.addEventListener('submit', (e) => {
         e.preventDefault();
-        const name = document.getElementById('reg-name').value;
-        const username = document.getElementById('reg-username').value;
-        const password = document.getElementById('reg-password').value;
-        const confirm = document.getElementById('reg-confirm').value;
+        const user = document.getElementById('auth-username').value;
+        const pass = document.getElementById('auth-password').value;
 
-        if (password !== confirm) { alert("Passwords do not match!"); return; }
-
-        const newId = generateUserId();
-        const userObj = { id: newId, name: name, username: username, password: password };
-        localStorage.setItem(`user_${username}`, JSON.stringify(userObj));
-        alert(`Registration successful! Your ID is ${newId}`);
-        showScreen(screens.login);
-        registerForm.reset();
-    });
-
-    loginForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const identifier = document.getElementById('login-identifier').value;
-        const password = document.getElementById('login-password').value;
-
-        const userData = localStorage.getItem(`user_${identifier}`);
-        if (userData) {
-            const user = JSON.parse(userData);
-            if (user.password === password) {
-                sessionStorage.setItem('currentUser', JSON.stringify(user));
-                updateDashboard(user);
-                showScreen(screens.home);
-                loginForm.reset();
-            } else { alert("Incorrect password."); }
+        if (rememberChk.checked) {
+            localStorage.setItem('savedUsername', user);
+            localStorage.setItem('savedPassword', pass);
         } else {
-            alert("Account not found. For this test phase, please register an account first.");
+            localStorage.removeItem('savedUsername');
+            localStorage.removeItem('savedPassword');
         }
-    });
 
-    function updateDashboard(user) {
-        currentUser = user;
-        document.getElementById('welcome-name').textContent = `Hello, ${user.name.split(' ')[0]} 👋`;
-        document.getElementById('display-id').textContent = user.id;
+        currentUser = { username: user };
+        document.getElementById('my-username').textContent = user;
+        showScreen(screens.main);
 
-        // Tell Java to broadcast our ID to the room!
-        if (window.AndroidBridge && window.AndroidBridge.registerOfflineId) {
-            window.AndroidBridge.registerOfflineId(user.id, user.name);
-            
-            // Immediately start scanning for other phones in the background!
-            window.AndroidBridge.discoverPeers();
-        }
-    }
-
-    // Check existing session on reload
-    const activeUser = sessionStorage.getItem('currentUser');
-    if (activeUser) {
-        updateDashboard(JSON.parse(activeUser));
-        showScreen(screens.home);
-    }
-
-    // --- DIALPAD LOGIC ---
-    const dialInput = document.getElementById('dial-input');
-    
-    // When opening the dialpad, trigger a fresh scan just in case
-    document.getElementById('btn-call').addEventListener('click', () => {
-        dialInput.value = 'DC-';
-        showScreen(screens.dialpad);
-        if (window.AndroidBridge) {
+        // Tell native app to start standard standard peer discovery
+        if (window.AndroidBridge && window.AndroidBridge.discoverPeers) {
             window.AndroidBridge.discoverPeers();
         }
     });
 
-    document.querySelectorAll('.dial-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const val = btn.textContent;
-            if (val === 'X') {
-                if (dialInput.value.length > 3) dialInput.value = dialInput.value.slice(0, -1);
-            } else {
-                dialInput.value += val;
-            }
-        });
+    document.getElementById('btn-logout').addEventListener('click', () => {
+        currentUser = null;
+        showScreen(screens.auth);
     });
-    document.getElementById('dial-call-btn').addEventListener('click', () => {
-        const targetId = dialInput.value.trim();
-        if(targetId.length > 3) {
-            // Check if we discovered this phone offline!
-            if (window.offlinePhonebook && window.offlinePhonebook[targetId]) {
-                startCall('DirectCall User', targetId);
-            } else {
-                alert(`Cannot reach ${targetId}. They are not nearby or not broadcasting.`);
-            }
+
+
+    // --- MAC TO ID HASHING (GENIUS OFFLINE ROUTING) ---
+    // Converts a MAC address (00:11:22:33:44:55) into a 5-digit number
+    function macToId(mac) {
+        if (!mac) return "00000";
+        let hash = 0;
+        for (let i = 0; i < mac.length; i++) {
+            hash = ((hash << 5) - hash) + mac.charCodeAt(i);
+            hash = hash & hash;
         }
-    });
+        let str = Math.abs(hash).toString();
+        while (str.length < 5) str = "0" + str;
+        return str.substring(0, 5);
+    }
 
-
-    // --- NATIVE ANDROID BRIDGE ---
-    window.offlinePhonebook = {};
+    // --- NEARBY LIST LOGIC ---
+    window.offlinePhonebook = {}; // ID -> MAC Address
 
     window.onPeersDiscovered = function(jsonPeersString) {
         const peers = JSON.parse(jsonPeersString);
         const listContainer = document.getElementById('nearby-list');
         listContainer.innerHTML = ''; 
         window.offlinePhonebook = {};
-        
-        if(peers.length === 0) {
-            listContainer.innerHTML = '<p style="text-align:center; color:#666; margin-top:20px;">No nearby devices found.</p>';
+
+        if (peers.length === 0) {
+            listContainer.innerHTML = '<p class="empty-state">No devices found yet.</p>';
             return;
         }
 
         peers.forEach(peer => {
-            window.offlinePhonebook[peer.id] = peer.address; // Map DC-ID to MAC
+            const numericId = macToId(peer.address);
+            window.offlinePhonebook[numericId] = peer.address;
 
-            const item = document.createElement('div');
-            item.className = 'user-item';
-            item.innerHTML = `
-                <div class="user-info">
-                    <div class="avatar-small">👤</div>
-                    <div><div class="item-name">${peer.name}</div><div class="item-id"><span class="status-dot"></span> ${peer.id}</div></div>
+            const div = document.createElement('div');
+            div.className = 'nearby-item';
+            div.innerHTML = 
+                <div>
+                    <div class="nearby-id"></div>
+                    <div class="nearby-mac"></div>
                 </div>
-                <button class="btn-call-small" onclick="startCall('${peer.name}', '${peer.id}')">📞 Connect</button>
-            `;
-            listContainer.appendChild(item);
+                <div style="color: #22c55e;">+</div>
+            ;
+            // Auto-fill the input when tapped
+            div.addEventListener('click', () => {
+                document.getElementById('target-input').value = numericId;
+            });
+            listContainer.appendChild(div);
         });
     };
 
-    window.onConnectionChanged = function(isConnected) {
-        const statusEl = document.getElementById('call-status');
-        const dashWifiEl = document.querySelector('.status-item:nth-child(1) .status-value');
-        
-        if (isConnected) {
-            if(statusEl) statusEl.textContent = 'Connected - Secure P2P Socket';
-            if(dashWifiEl) {
-                dashWifiEl.textContent = 'CONNECTED';
-                dashWifiEl.style.color = '#4caf50';
-            }
-            
-            const timerEl = document.getElementById('call-timer');
-            if(timerEl && !timerEl.classList.contains('visible')) {
-                timerEl.classList.add('visible');
-                callTimerInterval = setInterval(() => {
-                    callSeconds++;
-                    const m = String(Math.floor(callSeconds / 60)).padStart(2, '0');
-                    const s = String(callSeconds % 60).padStart(2, '0');
-                    timerEl.textContent = `${m}:${s}`;
-                }, 1000);
-            }
-        } else {
-            if(statusEl) statusEl.textContent = 'Disconnected';
-            if(dashWifiEl) {
-                dashWifiEl.textContent = 'NOT CONNECTED';
-                dashWifiEl.style.color = '#e74c3c';
-            }
-            clearInterval(callTimerInterval);
-        }
-    };
-
-    function populateNearbyUsers() {
-        const listContainer = document.getElementById('nearby-list');
-        listContainer.innerHTML = '<p style="text-align:center; color:#666; margin-top:20px;">Scanning for Wi-Fi Direct devices...</p>';
-        
-        if (window.AndroidBridge) {
-            window.AndroidBridge.discoverPeers();
-        } else {
-            listContainer.innerHTML = '<p style="text-align:center; color:red; margin-top:20px;">Error: Not running inside the Native Android App.</p>';
-        }
-    }
-
     // --- CALLING LOGIC ---
-    window.startCall = function(name, id) {
-        document.getElementById('caller-name').textContent = name;
-        document.getElementById('caller-id').textContent = id; 
-        document.getElementById('call-status').textContent = 'Negotiating Wi-Fi Direct connection...';
-        
-        const timerEl = document.getElementById('call-timer');
-        timerEl.classList.remove('visible');
-        timerEl.textContent = "00:00";
+    let callTimerInterval = null;
+    let callSeconds = 0;
+
+    document.getElementById('btn-call-main').addEventListener('click', () => {
+        const targetId = document.getElementById('target-input').value.trim();
+        if (targetId.length === 0) {
+            alert("Please enter or select an ID Number.");
+            return;
+        }
+
+        document.getElementById('call-target-name').textContent = "ID: " + targetId;
+        document.getElementById('call-status').textContent = 'Negotiating connection...';
+        document.getElementById('call-timer').classList.remove('visible');
         callSeconds = 0;
-        
         showScreen(screens.call);
 
         if (window.AndroidBridge) {
-            const macAddress = window.offlinePhonebook[id];
+            const macAddress = window.offlinePhonebook[targetId];
             if (macAddress) {
                 window.AndroidBridge.connectToPeer(macAddress);
             } else {
-                document.getElementById('call-status').textContent = 'Failed: Offline routing MAC not found.';
+                document.getElementById('call-status').textContent = 'Error: ID not found in nearby list.';
             }
+        } else {
+            // Simulator Mode
+            setTimeout(() => { window.onConnectionChanged(true); }, 2000);
+        }
+    });
+
+    window.onConnectionChanged = function(isConnected) {
+        const statusEl = document.getElementById('call-status');
+        const timerEl = document.getElementById('call-timer');
+        
+        if (isConnected) {
+            statusEl.textContent = 'Connected (Secure Socket)';
+            timerEl.classList.add('visible');
+            callTimerInterval = setInterval(() => {
+                callSeconds++;
+                const m = String(Math.floor(callSeconds / 60)).padStart(2, '0');
+                const s = String(callSeconds % 60).padStart(2, '0');
+                timerEl.textContent = ${m}:;
+            }, 1000);
+        } else {
+            statusEl.textContent = 'Disconnected';
+            clearInterval(callTimerInterval);
         }
     };
 
     document.getElementById('btn-end-call').addEventListener('click', () => {
         clearInterval(callTimerInterval);
         document.getElementById('call-status').textContent = 'Ending Call...';
-        if (window.AndroidBridge) {
-            window.AndroidBridge.disconnect();
-        }
-        setTimeout(() => showScreen(screens.home), 1500);
+        if (window.AndroidBridge) window.AndroidBridge.disconnect();
+        setTimeout(() => showScreen(screens.main), 1500);
     });
 
-    document.getElementById('btn-mute').addEventListener('click', function() {
-        this.classList.toggle('active');
-        this.textContent = this.classList.contains('active') ? '🎙️' : '🔇';
-    });
-    document.getElementById('btn-speaker').addEventListener('click', function() {
-        this.classList.toggle('active');
-    });
+    // SIMULATOR MOCK (For PC testing)
+    if (typeof window.AndroidBridge === 'undefined') {
+        setTimeout(() => {
+            if (document.getElementById('main-screen').classList.contains('active')) {
+                const fakePeers = [
+                    { name: "Android_Galaxy", address: "00:11:22:33:44:55" },
+                    { name: "Infinix_Note", address: "AA:BB:CC:DD:EE:FF" }
+                ];
+                if (window.onPeersDiscovered) window.onPeersDiscovered(JSON.stringify(fakePeers));
+            }
+        }, 3000);
+    }
 });
