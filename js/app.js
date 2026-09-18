@@ -25,6 +25,41 @@ window.addEventListener('beforeinstallprompt', (e) => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
+
+    // --- PC SIMULATOR MODE ---
+    // If opened on a Windows computer browser, simulate the Android hardware
+    if (typeof window.AndroidBridge === 'undefined') {
+        console.warn("Running on PC: Activating Android Wi-Fi Direct Simulator");
+        window.AndroidBridge = {
+            registerOfflineId: function(id, name) {
+                console.log(`[SIMULATOR] Radio broadcasting ID: ${id}`);
+            },
+            discoverPeers: function() {
+                console.log("[SIMULATOR] Scanning room for radio waves...");
+                // Pretend we found a phone after 1.5 seconds
+                setTimeout(() => {
+                    const fakePeers = [
+                        { name: "Test Phone B", id: "DC-99999", address: "AA:BB:CC:DD:EE:FF" }
+                    ];
+                    if (window.onPeersDiscovered) {
+                        window.onPeersDiscovered(JSON.stringify(fakePeers));
+                    }
+                }, 1500);
+            },
+            connectToPeer: function(mac) {
+                console.log(`[SIMULATOR] Negotiating connection with MAC: ${mac}`);
+                // Pretend connection succeeds after 2 seconds
+                setTimeout(() => {
+                    if (window.onConnectionChanged) window.onConnectionChanged(true);
+                }, 2000);
+            },
+            disconnect: function() {
+                console.log("[SIMULATOR] Disconnected.");
+                if (window.onConnectionChanged) window.onConnectionChanged(false);
+            }
+        };
+    }
+
     // Application Screens
     const screens = {
         login: document.getElementById('login-screen'),
