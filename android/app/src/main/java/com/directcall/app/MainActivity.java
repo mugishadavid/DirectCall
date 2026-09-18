@@ -95,11 +95,18 @@ public class MainActivity extends AppCompatActivity {
         manager.clearLocalServices(channel, new WifiP2pManager.ActionListener() {
             @Override
             public void onSuccess() {
-                manager.addLocalService(channel, serviceInfo, new WifiP2pManager.ActionListener() {
-                    @Override public void onSuccess() {}
-                    @Override public void onFailure(int error) {}
-                });
+                addActualService(serviceInfo);
             }
+            @Override 
+            public void onFailure(int error) {
+                addActualService(serviceInfo); // Do it anyway!
+            }
+        });
+    }
+
+    private void addActualService(WifiP2pDnsSdServiceInfo serviceInfo) {
+        manager.addLocalService(channel, serviceInfo, new WifiP2pManager.ActionListener() {
+            @Override public void onSuccess() {}
             @Override public void onFailure(int error) {}
         });
     }
@@ -140,18 +147,25 @@ public class MainActivity extends AppCompatActivity {
         manager.removeServiceRequest(channel, serviceRequest, new WifiP2pManager.ActionListener() {
             @Override
             public void onSuccess() {
-                manager.addServiceRequest(channel, serviceRequest, new WifiP2pManager.ActionListener() {
-                    @Override
-                    public void onSuccess() {
-                        manager.discoverServices(channel, new WifiP2pManager.ActionListener() {
-                            @Override public void onSuccess() {}
-                            @Override public void onFailure(int error) {}
-                        });
-                    }
+                addAndDiscoverServices(serviceRequest);
+            }
+            @Override 
+            public void onFailure(int reason) {
+                addAndDiscoverServices(serviceRequest); // Do it anyway!
+            }
+        });
+    }
+
+    private void addAndDiscoverServices(WifiP2pDnsSdServiceRequest serviceRequest) {
+        manager.addServiceRequest(channel, serviceRequest, new WifiP2pManager.ActionListener() {
+            @Override
+            public void onSuccess() {
+                manager.discoverServices(channel, new WifiP2pManager.ActionListener() {
+                    @Override public void onSuccess() {}
                     @Override public void onFailure(int error) {}
                 });
             }
-            @Override public void onFailure(int reason) {}
+            @Override public void onFailure(int error) {}
         });
     }
 
