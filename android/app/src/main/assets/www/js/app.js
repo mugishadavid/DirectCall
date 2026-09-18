@@ -11,7 +11,32 @@ document.addEventListener('DOMContentLoaded', () => {
         if(screen) screen.classList.add('active');
     }
 
-    // --- AUTHENTICATION ---
+    // --- AUTHENTICATION TABS ---
+    const tabLogin = document.getElementById('tab-login');
+    const tabRegister = document.getElementById('tab-register');
+    const authBtn = document.getElementById('auth-btn');
+    const authSubtitle = document.getElementById('auth-subtitle');
+    let isLoginMode = true;
+
+    if (tabLogin && tabRegister) {
+        tabLogin.addEventListener('click', () => {
+            isLoginMode = true;
+            tabLogin.classList.add('active');
+            tabRegister.classList.remove('active');
+            authBtn.textContent = 'Login';
+            authSubtitle.textContent = 'Welcome back to Offline Calling';
+        });
+
+        tabRegister.addEventListener('click', () => {
+            isLoginMode = false;
+            tabRegister.classList.add('active');
+            tabLogin.classList.remove('active');
+            authBtn.textContent = 'Create Account';
+            authSubtitle.textContent = 'Join the Offline Network';
+        });
+    }
+
+    // --- AUTHENTICATION LOGIC ---
     const authForm = document.getElementById('auth-form');
     const rememberChk = document.getElementById('auth-remember');
     
@@ -20,7 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (localStorage.getItem('savedUsername')) {
             document.getElementById('auth-username').value = localStorage.getItem('savedUsername');
             document.getElementById('auth-password').value = localStorage.getItem('savedPassword');
-            rememberChk.checked = true;
+            if(rememberChk) rememberChk.checked = true;
         }
 
         authForm.addEventListener('submit', (e) => {
@@ -28,7 +53,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const user = document.getElementById('auth-username').value;
             const pass = document.getElementById('auth-password').value;
 
-            if (rememberChk.checked) {
+            // In offline mode, register/login are functionally identical for local storage
+            // If it was a real backend, we would separate the API calls here based on isLoginMode.
+
+            if (rememberChk && rememberChk.checked) {
                 localStorage.setItem('savedUsername', user);
                 localStorage.setItem('savedPassword', pass);
             } else {
@@ -91,7 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="nearby-id">${numericId}</div>
                     <div class="nearby-mac">${peer.name}</div>
                 </div>
-                <div style="color: #22c55e;">+</div>
+                <div style="color: #22c55e; font-size: 1.5rem; font-weight: bold;">+</div>
             `;
             // Auto-fill the input when tapped
             div.addEventListener('click', () => {
