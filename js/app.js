@@ -63,10 +63,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Dashboard Buttons
-    document.getElementById('btn-call').addEventListener('click', () => {
-        document.getElementById('dial-input').value = 'DC-';
-        showScreen(screens.dialpad);
-    });
     document.getElementById('btn-contacts').addEventListener('click', () => showScreen(screens.contacts));
     document.getElementById('btn-nearby').addEventListener('click', () => { showScreen(screens.nearby); populateNearbyUsers(); });
     document.getElementById('btn-history').addEventListener('click', () => showScreen(screens.history));
@@ -128,6 +124,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Tell Java to broadcast our ID to the room!
         if (window.AndroidBridge && window.AndroidBridge.registerOfflineId) {
             window.AndroidBridge.registerOfflineId(user.id, user.name);
+            
+            // Immediately start scanning for other phones in the background!
+            window.AndroidBridge.discoverPeers();
         }
     }
 
@@ -140,6 +139,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- DIALPAD LOGIC ---
     const dialInput = document.getElementById('dial-input');
+    
+    // When opening the dialpad, trigger a fresh scan just in case
+    document.getElementById('btn-call').addEventListener('click', () => {
+        dialInput.value = 'DC-';
+        showScreen(screens.dialpad);
+        if (window.AndroidBridge) {
+            window.AndroidBridge.discoverPeers();
+        }
+    });
+
     document.querySelectorAll('.dial-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const val = btn.textContent;
