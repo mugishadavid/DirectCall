@@ -16,6 +16,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const tabRegister = document.getElementById('tab-register');
     const authBtn = document.getElementById('auth-btn');
     const authSubtitle = document.getElementById('auth-subtitle');
+    const authError = document.getElementById('auth-error');
+    
     let isLoginMode = true;
 
     if (tabLogin && tabRegister) {
@@ -25,6 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
             tabRegister.classList.remove('active');
             authBtn.textContent = 'Login';
             authSubtitle.textContent = 'Welcome back to Offline Calling';
+            if(authError) authError.textContent = '';
         });
 
         tabRegister.addEventListener('click', () => {
@@ -33,13 +36,17 @@ document.addEventListener('DOMContentLoaded', () => {
             tabLogin.classList.remove('active');
             authBtn.textContent = 'Create Account';
             authSubtitle.textContent = 'Join the Offline Network';
+            if(authError) authError.textContent = '';
         });
     }
 
-    // --- AUTHENTICATION LOGIC ---
+    // --- AUTHENTICATION LOGIC (LOCAL DB) ---
     const authForm = document.getElementById('auth-form');
     const rememberChk = document.getElementById('auth-remember');
     
+    // Initialize Local Database
+    let usersDB = JSON.parse(localStorage.getItem('usersDB')) || {};
+
     if (authForm) {
         // Load saved auth
         if (localStorage.getItem('savedUsername')) {
@@ -50,12 +57,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
         authForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            const user = document.getElementById('auth-username').value;
-            const pass = document.getElementById('auth-password').value;
+            const user = document.getElementById('auth-username').value.trim();
+            const pass = document.getElementById('auth-password').value.trim();
+            
+            if(authError) authError.textContent = '';
 
-            // In offline mode, register/login are functionally identical for local storage
-            // If it was a real backend, we would separate the API calls here based on isLoginMode.
+            if (isLoginMode) {
+                // Handle Login
+                if (!usersDB[user]) {
+                    if(authError) authError.textContent = 'Account not found. Please register first.';
+                    return;
+                }
+                if (usersDB[user].password !== pass) {
+                    if(authError) authError.textContent = 'Incorrect password.';
+                    return;
+                }
+            } else {
+                // Handle Register
+                if (usersDB[user]) {
+                    if(authError) authError.textContent = 'Username already exists. Please login instead.';
+                    return;
+                }
+                usersDB[user] = { password: pass };
+                localStorage.setItem('usersDB', JSON.stringify(usersDB));
+            }
 
+            // Authentication Successful!
             if (rememberChk && rememberChk.checked) {
                 localStorage.setItem('savedUsername', user);
                 localStorage.setItem('savedPassword', pass);
@@ -67,7 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('my-username').textContent = user;
             showScreen(screens.main);
 
-            // Tell native app to start standard standard peer discovery
+            // Tell native app to start standard peer discovery
             if (window.AndroidBridge && window.AndroidBridge.discoverPeers) {
                 window.AndroidBridge.discoverPeers();
             }
@@ -78,6 +105,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnLogout) {
         btnLogout.addEventListener('click', () => {
             showScreen(screens.auth);
+            if(authError) authError.textContent = '';
+            document.getElementById('auth-password').value = '';
         });
     }
 
